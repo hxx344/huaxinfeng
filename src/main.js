@@ -406,7 +406,7 @@ async function init() {
     }
   }
 
-  window.__game = { renderer, meadow, perf: () => ({ densityStep, renderScale }), flight, terrain, sites, errands, town, places, seeds, particles, wake, save, props, input, hud };
+  window.__game = { renderer, meadow, perf: () => ({ densityStep, renderScale }), flight, terrain, sites, errands, town, places, seeds, particles, wake, save, props, input, hud, audio };
   $('loading').textContent = '';
   $('start').disabled = false;
   $('start').textContent = '起飞';

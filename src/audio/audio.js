@@ -1,5 +1,9 @@
 const SCALE = [0, 2, 4, 7, 9];
 const note = (n) => 220 * Math.pow(2, (SCALE[((n % 5) + 5) % 5] + 12 * Math.floor(n / 5)) / 12);
+const semi = (s) => 220 * Math.pow(2, s / 12);
+// A、升 F 小调、D、E 挂留，和弦音都落在旋律用的五声音阶里
+const CHORDS = [[0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, 0, 2]];
+const BAR = 4;
 
 // 所有声音都在浏览器里合成，没有音频文件
 export class GameAudio {
@@ -8,7 +12,9 @@ export class GameAudio {
     this.muted = false;
     this.combo = 0;
     this.comboTime = 0;
-    this.musicTimer = 2;
+    this.nextBar = 0;
+    this.bar = 0;
+    this.melody = 7;
   }
 
   start() {
@@ -22,6 +28,14 @@ export class GameAudio {
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.7;
     this.master.connect(ctx.destination);
+    // 风声海声和音乐各走一路，音量分开定
+    this.ambient = ctx.createGain();
+    this.ambient.gain.value = 0.4;
+    this.ambient.connect(this.master);
+    this.music = ctx.createGain();
+    this.music.gain.value = 1;
+    this.music.connect(this.master);
+    this.nextBar = ctx.currentTime + 1.5;
 
     // 一点回声，让音符有空间感
     const delay = ctx.createDelay(1);
@@ -48,7 +62,7 @@ export class GameAudio {
       filter.Q.value = q;
       const gain = ctx.createGain();
       gain.gain.value = 0;
-      src.connect(filter).connect(gain).connect(this.master);
+      src.connect(filter).connect(gain).connect(this.ambient);
       src.start();
       return { filter, gain };
     };
@@ -63,7 +77,7 @@ export class GameAudio {
     return this.muted;
   }
 
-  tone(freq, dur, { type = 'sine', vol = 0.15, at = 0, echo = 0.5, slide = 0 } = {}) {
+  tone(freq, dur, { type = 'sine', vol = 0.15, at = 0, echo = 0.5, slide = 0, attack = 0.012, out = this.master } = {}) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const t = ctx.currentTime + at;
@@ -73,10 +87,10 @@ export class GameAudio {
     if (slide) osc.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.012);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
     g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
     osc.connect(g);
-    g.connect(this.master);
+    g.connect(out);
     if (echo > 0) {
       const send = ctx.createGain();
       send.gain.value = echo;
@@ -126,13 +140,23 @@ export class GameAudio {
     const low = Math.max(0, 1 - alt / 5) * s;
     this.skim.gain.gain.setTargetAtTime(low * (overSea ? 0.09 : 0.045), t, 0.1);
 
-    // 很轻的五声音阶背景音，随机落几个音
-    this.musicTimer -= dt;
-    if (this.musicTimer <= 0) {
-      this.musicTimer = 2.2 + Math.random() * 3.5;
-      const n = Math.floor(Math.random() * 8);
-      this.tone(note(n) / 2, 3.5, { vol: 0.035, echo: 0.8 });
-      if (Math.random() < 0.5) this.tone(note(n + 2) / 2, 3.2, { vol: 0.028, at: 0.4, echo: 0.8 });
+    // 背景音乐：四小节一轮的和弦铺底，加一条在五声音阶上随机游走的旋律
+    if (t > this.nextBar + 1) this.nextBar = t + 0.1;
+    if (t > this.nextBar - 0.3) {
+      const at = this.nextBar - t;
+      const chord = CHORDS[this.bar++ % CHORDS.length];
+      const music = { out: this.music };
+      this.tone(semi(chord[0]) / 2, BAR * 1.05, { ...music, vol: 0.11, at, attack: 0.08, echo: 0.2 });
+      for (const c of chord) {
+        this.tone(semi(c), BAR * 1.15, { ...music, type: 'triangle', vol: 0.045, at, attack: 0.9, echo: 0.3 });
+        this.tone(semi(c) * 1.004, BAR * 1.15, { ...music, vol: 0.04, at, attack: 0.9, echo: 0 });
+      }
+      for (let i = 0; i < 8; i++) {
+        if (Math.random() > (i % 2 === 0 ? 0.7 : 0.35)) continue;
+        this.melody = Math.max(4, Math.min(13, this.melody + Math.floor(Math.random() * 5) - 2));
+        this.tone(note(this.melody), 1.1, { ...music, type: 'triangle', vol: 0.085, at: at + (i * BAR) / 8, echo: 0.6 });
+      }
+      this.nextBar += BAR;
     }
   }
 }

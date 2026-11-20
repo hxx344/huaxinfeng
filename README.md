@@ -67,7 +67,7 @@ node tools/serve.mjs
 - **地面的细节**（`src/core/kit.js`、`src/core/shared.js`）：一张在代码里生成的四方连续噪声贴图，给地面加上细纹、给草地加上深浅色块，并让云影慢慢移过地面、花草、树和房子；远处没有花草实例的花田由地面上的色斑接上。
 - **海与天**（`src/world/water.js`、`src/world/sky.js`）：叠加波的法线、菲涅尔反射、岸边浪沫；天空渐变加噪声云。
 - **飞行与镜头**（`src/player`）：为贴地飞调的街机手感；镜头慢时贴近、冲刺时拉远。
-- **声音**（`src/audio/audio.js`）：风声、海声和音符全部用 Web Audio 合成。
+- **声音**（`src/audio/audio.js`）：风声、海声和背景音乐（和弦铺底加一条随机游走的五声音阶旋律）全部用 Web Audio 合成。
 
 ## 许可
 
