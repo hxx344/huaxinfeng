@@ -1,10 +1,14 @@
 {
   "name": "huaxinfeng",
-  "version": "1.0.0",
-  "description": "花信风：一个纯代码生成的扫帚飞行小游戏（three.js，无构建步骤，无美术资源文件）",
+  "version": "1.1.0",
+  "description": "花信风：一个纯代码生成的扫帚飞行小游戏（three.js，无美术资源文件，可打包成单个 HTML）",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node tools/serve.mjs"
+    "start": "node tools/serve.mjs",
+    "build": "node tools/build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }
