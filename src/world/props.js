@@ -1,6 +1,18 @@
 import * as THREE from 'three';
 import { Builder } from '../core/kit.js';
 import { mulberry32 } from '../core/noise.js';
+import { patchLit } from '../core/shared.js';
+
+// 把树冠下半截压暗，省掉一遍环境光遮蔽的计算
+function shadeByHeight(geo, top) {
+  const p = geo.attributes.position;
+  const c = geo.attributes.color;
+  for (let i = 0; i < p.count; i++) {
+    const k = 0.58 + 0.52 * Math.min(1, Math.max(0, p.getY(i) / top));
+    c.setXYZ(i, c.getX(i) * k, c.getY(i) * k, c.getZ(i) * k);
+  }
+  return geo;
+}
 
 function pineGeometry() {
   const b = new Builder();
@@ -8,7 +20,7 @@ function pineGeometry() {
   b.cone(0, 1.5, 0, 2.1, 3.3, [0.06, 0.19, 0.09], 8);
   b.cone(0, 3.4, 0, 1.6, 2.9, [0.08, 0.23, 0.1], 8);
   b.cone(0, 5.1, 0, 1.05, 2.5, [0.1, 0.27, 0.11], 8);
-  return b.geometry();
+  return shadeByHeight(b.geometry(), 7.6);
 }
 
 function leafyGeometry() {
@@ -18,7 +30,7 @@ function leafyGeometry() {
   b.ball(1.4, 4.0, 0.4, 1.6, [0.19, 0.38, 0.1]);
   b.ball(-1.2, 4.2, -0.7, 1.5, [0.12, 0.29, 0.07]);
   b.ball(0.2, 3.8, 1.3, 1.3, [0.2, 0.4, 0.11]);
-  return b.geometry();
+  return shadeByHeight(b.geometry(), 7.1);
 }
 
 export function createProps(scene, T) {
@@ -39,7 +51,7 @@ export function createProps(scene, T) {
     else leafies.push(item);
   }
 
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
+  const mat = patchLit(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
   const dummy = new THREE.Object3D();
   const color = new THREE.Color();
   const make = (geo, items) => {
@@ -77,7 +89,7 @@ export function createProps(scene, T) {
   }
   const rockMesh = new THREE.InstancedMesh(
     new THREE.DodecahedronGeometry(1, 0),
-    new THREE.MeshStandardMaterial({ color: new THREE.Color(0.4, 0.38, 0.35), roughness: 1, flatShading: true }),
+    patchLit(new THREE.MeshStandardMaterial({ color: new THREE.Color(0.4, 0.38, 0.35), roughness: 1, flatShading: true })),
     rocks.length
   );
   rocks.forEach((it, i) => {

@@ -26,7 +26,7 @@ node tools/serve.mjs
 
 然后打开 <http://localhost:6281>。需要支持 WebGL2 的桌面浏览器（在 Chrome 中开发和验证）。
 
-网址参数：`?q=low|medium|high` 调整花草密度，`?dpr=1.5` 指定像素比，`?noscale` 关闭自动降分辨率，`?play` 跳过标题画面。
+网址参数：`?q=low|medium|high` 调整花草密度，`?dpr=1.5` 指定像素比，`?noscale` 关闭自动降分辨率，`?noaa` 关闭抗锯齿，`?play` 跳过标题画面。
 
 ## 操作
 
@@ -64,6 +64,7 @@ node tools/serve.mjs
 - **花田**（`src/world/meadow.js`）：草和花是围绕镜头平铺的实例，在顶点着色器里采样高度图落到地面上；花按名次随距离变稀，花瓣一片一片地掉。
 - **岛**（`src/world/terrain.js`）：3.2 公里见方的高度场，由噪声生成：南岸缓滩、北岸陡崖、山、峡湾、海蚀柱和两座离岛。
 - **城镇**（`src/world/town.js`、`src/core/kit.js`）：房子、塔、风车、灯塔都用盒子、圆柱和棱柱在代码里拼出来，合并成一个网格；选址时把地面整平。
+- **地面的细节**（`src/core/kit.js`、`src/core/shared.js`）：一张在代码里生成的四方连续噪声贴图，给地面加上细纹、给草地加上深浅色块，并让云影慢慢移过地面、花草、树和房子；远处没有花草实例的花田由地面上的色斑接上。
 - **海与天**（`src/world/water.js`、`src/world/sky.js`）：叠加波的法线、菲涅尔反射、岸边浪沫；天空渐变加噪声云。
 - **飞行与镜头**（`src/player`）：为贴地飞调的街机手感；镜头慢时贴近、冲刺时拉远。
 - **声音**（`src/audio/audio.js`）：风声、海声和音符全部用 Web Audio 合成。

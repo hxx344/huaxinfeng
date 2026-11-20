@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mulberry32 } from './noise.js';
 
 const _m = new THREE.Matrix4();
 const _nm = new THREE.Matrix3();
@@ -101,5 +102,68 @@ export function glowTexture() {
   ctx.fillRect(0, 0, size, size);
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// 一张四方连续的噪声贴图，着色器里采样它比现算噪声便宜得多。
+// R、G 是两组互不相关的大块起伏，B 是细碎的颗粒
+export function noiseTexture(size = 256) {
+  const rng = mulberry32(8123);
+  const lattice = (period) => {
+    const v = new Float32Array(period * period);
+    for (let i = 0; i < v.length; i++) v[i] = rng();
+    return (u, w) => {
+      const x = u * period;
+      const y = w * period;
+      const i = Math.floor(x);
+      const j = Math.floor(y);
+      let fx = x - i;
+      let fy = y - j;
+      fx = fx * fx * (3 - 2 * fx);
+      fy = fy * fy * (3 - 2 * fy);
+      const i0 = i % period;
+      const j0 = j % period;
+      const i1 = (i0 + 1) % period;
+      const j1 = (j0 + 1) % period;
+      const a = v[j0 * period + i0] + (v[j0 * period + i1] - v[j0 * period + i0]) * fx;
+      const b = v[j1 * period + i0] + (v[j1 * period + i1] - v[j1 * period + i0]) * fx;
+      return a + (b - a) * fy;
+    };
+  };
+  const channels = [[4, 8, 16, 32], [6, 12, 24, 48], [32, 64, 128]].map((periods) => {
+    const layers = periods.map(lattice);
+    const out = new Float32Array(size * size);
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let j = 0; j < size; j++) {
+      for (let i = 0; i < size; i++) {
+        let s = 0;
+        let amp = 1;
+        for (const f of layers) {
+          s += amp * f(i / size, j / size);
+          amp *= 0.5;
+        }
+        out[j * size + i] = s;
+        lo = Math.min(lo, s);
+        hi = Math.max(hi, s);
+      }
+    }
+    for (let k = 0; k < out.length; k++) out[k] = (out[k] - lo) / (hi - lo);
+    return out;
+  });
+  const data = new Uint8Array(size * size * 4);
+  for (let k = 0; k < size * size; k++) {
+    data[k * 4] = channels[0][k] * 255;
+    data[k * 4 + 1] = channels[1][k] * 255;
+    data[k * 4 + 2] = channels[2][k] * 255;
+    data[k * 4 + 3] = 255;
+  }
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
   return tex;
 }

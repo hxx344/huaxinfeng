@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { U } from './core/shared.js';
 import { mulberry32, clamp } from './core/noise.js';
-import { glowTexture } from './core/kit.js';
+import { glowTexture, noiseTexture } from './core/kit.js';
 import { Terrain } from './world/terrain.js';
 import { planSites, buildTown } from './world/town.js';
 import { createSky } from './world/sky.js';
@@ -25,7 +25,8 @@ const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const isTouch = params.has('touch') || matchMedia('(pointer: coarse)').matches;
 document.body.classList.toggle('touch', isTouch);
-// 手机默认用更稀的花草、更低的像素比和更小的阴影贴图
+// 手机默认用更稀的花草、更低的像素比和更小的阴影贴图。
+// 草叶很细，不开抗锯齿远处会闪成一片，所以两端都开
 const quality = { low: 0.35, medium: 0.65, high: 1 }[params.get('q')] ?? (isTouch ? 0.4 : 1);
 const basePixelRatio = Math.min(Number(params.get('dpr')) || devicePixelRatio || 1, isTouch ? 1.25 : 1.5);
 const DENSITY_STEPS = [1, 0.7, 0.5, 0.35];
@@ -51,7 +52,7 @@ const persist = () => {
 };
 
 const canvas = $('view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !params.has('noaa'), powerPreference: 'high-performance' });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
@@ -71,6 +72,7 @@ async function stage(text) {
 
 async function init() {
   await stage('正在堆出一座岛…');
+  U.uNoiseMap.value = noiseTexture();
   const terrain = new Terrain();
   const sites = planSites(terrain, mulberry32(77));
   terrain.finalize(sites.clears);

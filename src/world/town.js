@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Builder, rot } from '../core/kit.js';
+import { patchLit } from '../core/shared.js';
 import { STACK } from './terrain.js';
 
 const WALLS = [
@@ -425,7 +426,7 @@ export function buildTown(scene, T, sites, rng) {
     colliders.push({ x, z, r: 1.6, top: y + 9 });
   }
 
-  const solid = B.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
+  const solid = B.mesh(patchLit(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 })));
   solid.castShadow = true;
   solid.receiveShadow = true;
   solid.frustumCulled = false;

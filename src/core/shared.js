@@ -24,6 +24,7 @@ export const U = {
   uTime: { value: 0 },
   uHeightMap: { value: null },
   uStripMap: { value: null },
+  uNoiseMap: { value: null },
   uTrail: { value: Array.from({ length: TRAIL_N }, () => new THREE.Vector4(0, 0, 0, 1)) },
   uSunDir: { value: SUN_DIR },
   uSunColor: { value: SUN_COLOR },
@@ -44,6 +45,7 @@ const float GRID = ${GRID.toFixed(1)};
 uniform float uTime;
 uniform sampler2D uHeightMap;
 uniform sampler2D uStripMap;
+uniform sampler2D uNoiseMap;
 uniform vec4 uTrail[${TRAIL_N}];
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
@@ -66,6 +68,11 @@ vec3 skyColor(vec3 d) {
   float s = max(dot(d, uSunDir), 0.0);
   c += uSunColor * (pow(s, 6.0) * 0.22 + pow(s, 90.0) * 0.6);
   return c;
+}
+// 云影：随风慢慢移过地面的大块明暗
+float cloudShade(vec2 p) {
+  float n = texture2D(uNoiseMap, p * 0.00115 + uTime * vec2(0.0035, 0.002)).r;
+  return mix(0.62, 1.0, smoothstep(0.36, 0.6, n));
 }
 float hash12(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -106,3 +113,27 @@ vec3 wakeAt(vec2 p) {
   return vec3(push, min(s, 1.5));
 }
 `;
+
+// 给 three.js 的内置材质接上云影，让它们和自写着色器一起明暗；
+// pars 和 body 是额外插进片元着色器的全局声明和改 diffuseColor 的语句
+export function patchLit(material, pars = '', body = '') {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, U);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        vec4 wPos = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+          wPos = instanceMatrix * wPos;
+        #endif
+        vWPos = (modelMatrix * wPos).xyz;`
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n${GLSL_COMMON}\nvarying vec3 vWPos;\n${pars}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${body}\ndiffuseColor.rgb *= cloudShade(vWPos.xz);`);
+  };
+  material.customProgramCacheKey = () => `lit:${pars}${body}`;
+  return material;
+}

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeNoise, fbm, ridged, smooth, clamp } from '../core/noise.js';
-import { U, WORLD, HALF, GRID } from '../core/shared.js';
+import { U, WORLD, HALF, GRID, patchLit } from '../core/shared.js';
+import { PALETTE_GLSL } from './meadow.js';
 
 const N = GRID;
 const S = N + 1;
@@ -248,7 +249,23 @@ export class Terrain {
     geo.computeBoundingSphere();
     this.mesh = new THREE.Mesh(
       geo,
-      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 })
+      patchLit(
+        new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 }),
+        PALETTE_GLSL,
+        /* glsl */ `
+        vec2 gp = vWPos.xz;
+        float gDist = length(cameraPosition - vWPos);
+        vec3 nMid = texture2D(uNoiseMap, gp * 0.0043).rgb;
+        // 细纹转个角度再采样，免得和大块起伏的格子对齐
+        vec3 nFine = texture2D(uNoiseMap, vec2(gp.x * 0.8 - gp.y * 0.6, gp.x * 0.6 + gp.y * 0.8) * 0.13).rgb;
+        diffuseColor.rgb *= (0.84 + 0.32 * nMid.g) * (0.86 + 0.28 * nFine.b);
+        // 花草实例只铺在镜头附近，更远的花田靠地面上的色斑接上
+        vec4 gm = texture2D(uHeightMap, terrainUV(gp));
+        float fi = mod(floor(gm.b * 6.0 + (nFine.g - 0.5) * 1.4) + 6.0, 6.0);
+        float drift = gm.g * smoothstep(0.45, 0.58, nFine.r * 0.5 + nMid.b * 0.5) * smoothstep(70.0, 220.0, gDist);
+        diffuseColor.rgb = mix(diffuseColor.rgb, palette(fi) * 0.8, drift * 0.5);
+      `
+      )
     );
     this.mesh.receiveShadow = true;
 

@@ -17,6 +17,18 @@ export function flowerColor(field, rand) {
   return PALETTE[i];
 }
 
+const pal = PALETTE.map((c) => `vec3(${c.map((v) => v.toFixed(3)).join(', ')})`);
+export const PALETTE_GLSL = /* glsl */ `
+  vec3 palette(float i) {
+    if (i < 0.5) return ${pal[0]};
+    if (i < 1.5) return ${pal[1]};
+    if (i < 2.5) return ${pal[2]};
+    if (i < 3.5) return ${pal[3]};
+    if (i < 4.5) return ${pal[4]};
+    return ${pal[5]};
+  }
+`;
+
 const PLACE = /* glsl */ `
   attribute vec4 aOff;
   uniform float uTile;
@@ -67,6 +79,8 @@ function grassLayer(count, tile, bladeH, bladeW, rng) {
       varying float vY;
       varying float vTint;
       varying float vDist;
+      // x 色块，y 云影，z 逆光透亮，w 阵风扫过的亮带
+      varying vec4 vShade;
       void main() {
         vec2 base = placeBase();
         vec4 t = texture2D(uHeightMap, terrainUV(base));
@@ -85,6 +99,13 @@ function grassLayer(count, tile, bladeH, bladeW, rng) {
         p.y += y * hgt / (1.0 + dot(lean, lean) * 0.9);
         vY = y;
         vTint = t.b * 0.7 + aOff.w * 0.3;
+        vec3 toCam = normalize(cameraPosition - p);
+        float back = max(dot(-toCam, uSunDir), 0.0);
+        vShade = vec4(
+          0.84 + 0.32 * texture2D(uNoiseMap, base * 0.0043).g,
+          cloudShade(base),
+          back * back,
+          0.5 + 0.5 * sin(uTime * 0.6 + dot(base, vec2(0.021, 0.033))));
         vec4 mv = viewMatrix * vec4(p, 1.0);
         vDist = -mv.z;
         gl_Position = projectionMatrix * mv;
@@ -95,11 +116,12 @@ function grassLayer(count, tile, bladeH, bladeW, rng) {
       varying float vY;
       varying float vTint;
       varying float vDist;
+      varying vec4 vShade;
       void main() {
         vec3 root = vec3(0.07, 0.17, 0.035);
         vec3 tip = mix(vec3(0.27, 0.5, 0.1), vec3(0.52, 0.55, 0.17), vTint);
-        vec3 col = mix(root, tip, vY);
-        col *= uSunLight * (0.42 + 0.4 * vY) + uSkyLight * (0.45 + 0.55 * vY);
+        vec3 col = mix(root, tip, vY) * vShade.x * (1.0 + 0.2 * vShade.w * vY);
+        col *= (uSunLight * (0.42 + (0.4 + 0.55 * vShade.z) * vY) + uSkyLight * (0.45 + 0.55 * vY)) * vShade.y;
         col = applyFog(col, vDist);
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
@@ -158,7 +180,6 @@ function flowerLayer(count, tile, scale, rng) {
   g.setAttribute('aPart', new THREE.BufferAttribute(base.part, 1));
   g.setAttribute('aOff', offsets(count, tile, rng));
   g.instanceCount = count;
-  const pal = PALETTE.map((c) => `vec3(${c.map((v) => v.toFixed(3)).join(', ')})`);
   const material = new THREE.ShaderMaterial({
     uniforms: commonUniforms({
       uTile: { value: tile },
@@ -173,14 +194,7 @@ function flowerLayer(count, tile, scale, rng) {
       uniform float uScale;
       varying vec3 vCol;
       varying float vDist;
-      vec3 palette(float i) {
-        if (i < 0.5) return ${pal[0]};
-        if (i < 1.5) return ${pal[1]};
-        if (i < 2.5) return ${pal[2]};
-        if (i < 3.5) return ${pal[3]};
-        if (i < 4.5) return ${pal[4]};
-        return ${pal[5]};
-      }
+      ${PALETTE_GLSL}
       void main() {
         vec2 base = placeBase();
         vec4 t = texture2D(uHeightMap, terrainUV(base));
@@ -216,7 +230,7 @@ function flowerLayer(count, tile, scale, rng) {
           vec3 petal = palette(idx) * (0.82 + 0.3 * fract(aOff.z * 17.0));
           vCol = aPart < 1.5 ? vec3(0.95, 0.62, 0.05) : petal;
         }
-        vCol *= uSunLight * 0.82 + uSkyLight;
+        vCol *= (uSunLight * 0.82 + uSkyLight) * cloudShade(base);
         vec4 mv = viewMatrix * vec4(p, 1.0);
         vDist = -mv.z;
         gl_Position = projectionMatrix * mv;
