@@ -1,0 +1,10 @@
+{
+  "name": "huaxinfeng",
+  "version": "1.0.0",
+  "description": "花信风：一个纯代码生成的扫帚飞行小游戏（three.js，无构建步骤，无美术资源文件）",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs"
+  }
+}

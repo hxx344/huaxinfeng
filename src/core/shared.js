@@ -1,0 +1,108 @@
+import * as THREE from 'three';
+
+export const WORLD = 3200;
+export const HALF = WORLD / 2;
+export const GRID = 512;
+export const TRAIL_N = 24;
+
+const SUN_DIR = new THREE.Vector3(-0.55, 0.42, 0.62).normalize();
+const SUN_COLOR = new THREE.Color(1.0, 0.87, 0.68);
+const SKY_COLOR = new THREE.Color(0.55, 0.72, 1.0);
+const GROUND_COLOR = new THREE.Color(0.42, 0.38, 0.28);
+
+export const LIGHT = {
+  sunDir: SUN_DIR,
+  sunColor: SUN_COLOR,
+  sunIntensity: 3.1,
+  skyColor: SKY_COLOR,
+  groundColor: GROUND_COLOR,
+  hemiIntensity: 1.35,
+};
+
+// 所有自写着色器共用的 uniform；内置材质的灯光用同一组数值，保证两者亮度一致
+export const U = {
+  uTime: { value: 0 },
+  uHeightMap: { value: null },
+  uStripMap: { value: null },
+  uTrail: { value: Array.from({ length: TRAIL_N }, () => new THREE.Vector4(0, 0, 0, 1)) },
+  uSunDir: { value: SUN_DIR },
+  uSunColor: { value: SUN_COLOR },
+  uSunLight: { value: SUN_COLOR.clone().multiplyScalar(LIGHT.sunIntensity / Math.PI) },
+  uSkyLight: { value: SKY_COLOR.clone().multiplyScalar(LIGHT.hemiIntensity / Math.PI) },
+  uFogColor: { value: new THREE.Color(0.66, 0.75, 0.84) },
+  uFogDensity: { value: 0.00026 },
+  uZenith: { value: new THREE.Color(0.1, 0.27, 0.62) },
+};
+
+export function commonUniforms(extra = {}) {
+  return { ...U, ...extra };
+}
+
+export const GLSL_COMMON = /* glsl */ `
+const float WORLD = ${WORLD.toFixed(1)};
+const float GRID = ${GRID.toFixed(1)};
+uniform float uTime;
+uniform sampler2D uHeightMap;
+uniform sampler2D uStripMap;
+uniform vec4 uTrail[${TRAIL_N}];
+uniform vec3 uSunDir;
+uniform vec3 uSunColor;
+uniform vec3 uSunLight;
+uniform vec3 uSkyLight;
+uniform vec3 uFogColor;
+uniform float uFogDensity;
+uniform vec3 uZenith;
+
+vec2 terrainUV(vec2 xz) {
+  return (xz / WORLD + 0.5) * (GRID / (GRID + 1.0)) + 0.5 / (GRID + 1.0);
+}
+vec3 applyFog(vec3 c, float dist) {
+  float f = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
+  return mix(c, uFogColor, f);
+}
+vec3 skyColor(vec3 d) {
+  float y = max(d.y, 0.0);
+  vec3 c = mix(uFogColor, uZenith, pow(y, 0.6));
+  float s = max(dot(d, uSunDir), 0.0);
+  c += uSunColor * (pow(s, 6.0) * 0.22 + pow(s, 90.0) * 0.6);
+  return c;
+}
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash12(i), hash12(i + vec2(1.0, 0.0)), f.x),
+             mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float s = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    s += a * vnoise(p);
+    p = p * 2.03 + vec2(17.1, 9.3);
+    a *= 0.5;
+  }
+  return s;
+}
+// 尾流对地面的影响：xy 为把草推开的方向，z 为强度
+vec3 wakeAt(vec2 p) {
+  vec2 push = vec2(0.0);
+  float s = 0.0;
+  for (int i = 0; i < ${TRAIL_N}; i++) {
+    vec4 t = uTrail[i];
+    vec2 d = p - t.xy;
+    float r2 = dot(d, d);
+    float f = t.z * exp(-r2 / (t.w * t.w));
+    push += f * d / (sqrt(r2) + 0.6);
+    s += f;
+  }
+  float l = length(push);
+  if (l > 1.6) push *= 1.6 / l;
+  return vec3(push, min(s, 1.5));
+}
+`;
