@@ -55,7 +55,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPre
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 let renderScale = 1;
 renderer.setPixelRatio(basePixelRatio);
 

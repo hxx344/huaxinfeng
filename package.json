@@ -1,6 +1,6 @@
 {
   "name": "huaxinfeng",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "花信风：一个纯代码生成的扫帚飞行小游戏（three.js，无美术资源文件，可打包成单个 HTML）",
   "private": true,
   "type": "module",
