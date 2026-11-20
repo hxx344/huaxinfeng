@@ -18,12 +18,18 @@ import { Rider } from './player/rider.js';
 import { ChaseCamera } from './player/camera.js';
 import { Errands } from './game/errands.js';
 import { Hud } from './ui/hud.js';
+import { TouchUI } from './ui/touch.js';
 import { GameAudio } from './audio/audio.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const quality = { low: 0.35, medium: 0.65, high: 1 }[params.get('q')] ?? 1;
-const basePixelRatio = Math.min(Number(params.get('dpr')) || devicePixelRatio || 1, 1.5);
+const isTouch = params.has('touch') || matchMedia('(pointer: coarse)').matches;
+document.body.classList.toggle('touch', isTouch);
+// 手机默认用更稀的花草、更低的像素比和更小的阴影贴图
+const quality = { low: 0.35, medium: 0.65, high: 1 }[params.get('q')] ?? (isTouch ? 0.4 : 1);
+const basePixelRatio = Math.min(Number(params.get('dpr')) || devicePixelRatio || 1, isTouch ? 1.25 : 1.5);
+const DENSITY_STEPS = [1, 0.7, 0.5, 0.35];
+const SLOW_FRAME = 0.024;
 const FLIP_SEEDS = 10;
 const SAVE_KEY = 'huaxinfeng.save.v1';
 
@@ -45,7 +51,7 @@ const persist = () => {
 };
 
 const canvas = $('view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
@@ -72,7 +78,7 @@ async function init() {
 
   await stage('正在盖房子、种树…');
   const glowMap = glowTexture();
-  const sky = createSky(scene);
+  const sky = createSky(scene, isTouch ? 1024 : 2048);
   createWater(scene);
   const town = buildTown(scene, terrain, sites, mulberry32(303));
   const props = createProps(scene, terrain);
@@ -108,9 +114,29 @@ async function init() {
     },
     onLand(at, delivered) {
       audio.land();
-      if (!delivered) hud.toast(at.name, '包裹不是送到这里的，按空格起飞');
+      if (!delivered) hud.toast(at.name, isTouch ? '包裹不是送到这里的，点“起飞”离开' : '包裹不是送到这里的，按空格起飞');
     },
     onTakeoff() {},
+  });
+
+  const touchUI = isTouch
+    ? new TouchUI(input, {
+        onLand() {
+          if (errands.state === 'landed') input.press('Space');
+          else input.doubleSpace = true;
+        },
+        onCalibrate() {
+          input.calibrate();
+          hud.toast('已校准', '现在的拿法就是平飞', 1.6);
+        },
+      })
+    : null;
+
+  // 显存被系统回收后 three.js 会自己重建资源，但掉瓣图是画出来的，得重新清空
+  canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
+  canvas.addEventListener('webglcontextrestored', () => {
+    wake.cleared = false;
+    wake.cpu.fill(0);
   });
 
   function resize() {
@@ -194,6 +220,8 @@ async function init() {
   let last = performance.now();
   let slow = 0;
   let scaleTimer = 0;
+  let densityStep = 0;
+  let pendingResize = false;
   const focus = new THREE.Vector3(sites.harbour.x, sites.harbour.y, sites.harbour.z);
   const total = places.items.length;
   let foundCount = places.items.filter((it) => it.found).length;
@@ -204,6 +232,24 @@ async function init() {
     state = 'play';
     $('title').classList.add('gone');
     $('hud').classList.add('on');
+    document.body.classList.add('playing');
+    if (isTouch) {
+      // 这两步都必须在点击的回调里发起
+      input.enableTilt().then((granted) => {
+        setTimeout(() => {
+          const on = granted && input.tilt.active;
+          touchUI.setTilt(on);
+          hud.toast(on ? '倾斜手机来操纵' : '用左下角的摇杆操纵', on ? '左右倾斜转向，前后倾斜俯冲和拉起' : '没有检测到重力感应', 4.5);
+        }, 1200);
+      });
+      try {
+        Promise.resolve(document.documentElement.requestFullscreen?.())
+          .then(() => screen.orientation?.lock?.('landscape'))
+          .catch(() => {});
+      } catch {
+        // 不支持全屏或锁定横屏的浏览器照常玩
+      }
+    }
     const x = sites.harbour.x;
     const z = sites.harbour.z - 330;
     flight.pos.set(x, terrain.ground(x, z) + 9, z);
@@ -212,7 +258,7 @@ async function init() {
     flight.speed = 26;
     rider.group.visible = true;
     chase.snap(flight);
-    input.pointerEnabled = true;
+    input.pointerEnabled = !isTouch;
     audio.start();
     hud.toast(`包裹送往 ${errands.target.name}`, '跟着金色的光柱和罗盘上的金点飞', 5);
   }
@@ -276,7 +322,11 @@ async function init() {
 
     const t = errands.target.spot;
     let prompt = '';
-    if (landed) prompt = '按 空格 起飞';
+    if (touchUI) {
+      touchUI.setLand(landed ? '起飞' : flying && errands.near ? `降落 · ${errands.near.name}` : null);
+      touchUI.setFlip(flying && save.seeds >= FLIP_SEEDS);
+      if (flying && flight.homing) prompt = '风把你吹回岛的方向';
+    } else if (landed) prompt = '按 空格 起飞';
     else if (flying && errands.near) prompt = `连按两次 空格 降落到 ${errands.near.name}`;
     else if (flying && flight.homing) prompt = '风把你吹回岛的方向';
     hud.update(dt, {
@@ -317,6 +367,11 @@ async function init() {
     const raw = (now - last) / 1000;
     last = now;
     const dt = Math.min(0.05, Math.max(0.0001, raw));
+    // 改画布大小会清空画面，所以放在这一帧开始、渲染之前做，否则会闪一下
+    if (pendingResize) {
+      pendingResize = false;
+      resize();
+    }
     time += dt;
     U.uTime.value = time;
     input.update(dt);
@@ -330,21 +385,26 @@ async function init() {
     renderer.render(scene, camera);
     input.endFrame();
 
-    // 帧率撑不住时逐级降低渲染分辨率
-    if (!params.has('noscale')) {
-      slow += (raw - slow) * 0.05;
-      scaleTimer += raw;
-      if (scaleTimer > 2.5) {
+    // 帧率撑不住时先让花草变稀（不动画布），还不够再降分辨率。
+    // 单帧耗时封顶，切回标签页时的一次长停顿不算数
+    if (!params.has('noscale') && state === 'play') {
+      const sample = Math.min(raw, 0.1);
+      slow += (sample - slow) * 0.05;
+      scaleTimer += sample;
+      if (scaleTimer > 3) {
         scaleTimer = 0;
-        if (slow > 0.024 && renderScale > 0.55) {
-          renderScale -= 0.12;
-          resize();
+        if (slow > SLOW_FRAME) {
+          if (densityStep < DENSITY_STEPS.length - 1) meadow.setDensity(DENSITY_STEPS[++densityStep]);
+          else if (renderScale > 0.6) {
+            renderScale -= 0.15;
+            pendingResize = true;
+          }
         }
       }
     }
   }
 
-  window.__game = { renderer, flight, terrain, sites, errands, town, places, seeds, particles, wake, save, props, input, hud };
+  window.__game = { renderer, meadow, perf: () => ({ densityStep, renderScale }), flight, terrain, sites, errands, town, places, seeds, particles, wake, save, props, input, hud };
   $('loading').textContent = '';
   $('start').disabled = false;
   $('start').textContent = '起飞';

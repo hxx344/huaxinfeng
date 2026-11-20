@@ -249,7 +249,14 @@ export function createMeadow(scene, quality) {
   ];
   for (const m of layers) scene.add(m);
   const fwd = new THREE.Vector3();
+  const full = layers.map((m) => m.geometry.instanceCount);
   return {
+    // 实例的位置是随机的，所以只画前一部分就等于均匀地变稀，不需要重建几何体
+    setDensity(f) {
+      layers.forEach((m, i) => {
+        m.geometry.instanceCount = Math.max(1, Math.floor(full[i] * f));
+      });
+    },
     update(camera) {
       camera.getWorldDirection(fwd);
       const l = Math.hypot(fwd.x, fwd.z) || 1;

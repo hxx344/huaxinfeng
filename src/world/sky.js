@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { commonUniforms, GLSL_COMMON, LIGHT, U } from '../core/shared.js';
 
-export function createSky(scene) {
+export function createSky(scene, shadowSize = 2048) {
   const material = new THREE.ShaderMaterial({
     uniforms: commonUniforms(),
     side: THREE.BackSide,
@@ -48,7 +48,7 @@ export function createSky(scene) {
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(LIGHT.sunColor, LIGHT.sunIntensity);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(shadowSize, shadowSize);
   const sc = sun.shadow.camera;
   sc.left = -110;
   sc.right = 110;
@@ -66,7 +66,7 @@ export function createSky(scene) {
     update(camera, focus) {
       dome.position.copy(camera.position);
       // 阴影相机跟着焦点走，按阴影贴图的像素取整以免闪烁
-      const step = 220 / 2048;
+      const step = 220 / shadowSize;
       const fx = Math.round(focus.x / step) * step;
       const fz = Math.round(focus.z / step) * step;
       sun.target.position.set(fx, focus.y, fz);
