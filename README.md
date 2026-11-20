@@ -9,9 +9,11 @@ _一把扫帚，一座岛，一阵好风。_
 ![花田与云雀港](screenshots/meadow.png)
 ![降落在老风车的回廊上](screenshots/landed.png)
 
+**在线玩：<https://hxx344.github.io/huaxinfeng/>**
+
 ## 运行
 
-**最简单的方式：** 下载 [`huaxinfeng.html`](huaxinfeng.html) 这一个文件，双击用浏览器打开就能玩。
+**离线玩最简单的方式：** 下载 [`huaxinfeng.html`](huaxinfeng.html) 这一个文件，双击用浏览器打开就能玩。
 页面、游戏代码和 three.js 都打包在里面，不需要服务器，也不需要其他文件。
 
 改了源码之后，用 `npm install` 装一次打包工具，再用 `npm run build` 重新生成这个文件。
