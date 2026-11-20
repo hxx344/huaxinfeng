@@ -1,7 +1,7 @@
 {
   "name": "huaxinfeng",
-  "version": "1.3.1",
-  "description": "花信风：一个纯代码生成的扫帚飞行小游戏（three.js，无美术资源文件，可打包成单个 HTML）",
+  "version": "2.0.0",
+  "description": "魂器之夜：一个纯代码生成的霍格沃茨扫帚空战肉鸽（three.js，无美术资源文件，可打包成单个 HTML）",
   "private": true,
   "type": "module",
   "scripts": {

@@ -21,14 +21,18 @@ export function createSky(scene, shadowSize = 2048) {
         vec3 d = normalize(vDir);
         vec3 col = skyColor(d);
         float s = max(dot(d, uSunDir), 0.0);
-        col += uSunColor * smoothstep(0.9993, 0.9997, s) * 14.0;
+        col += uSunColor * smoothstep(0.9982, 0.9987, s) * 5.0;
         if (d.y > 0.0) {
+          vec2 sp = d.xz / (d.y + 0.35) * 160.0;
+          float star = step(0.985, hash12(floor(sp))) * smoothstep(0.5, 0.1, length(fract(sp) - 0.5));
+          col += vec3(0.8, 0.88, 1.0) * star * (0.5 + 0.5 * sin(uTime * 2.0 + sp.x)) * smoothstep(0.02, 0.3, d.y);
           vec2 uv = d.xz / (d.y + 0.14) * 1.1 + vec2(uTime * 0.006, uTime * 0.003);
           float n = fbm(uv);
           float dens = smoothstep(0.52, 0.8, n) * smoothstep(0.0, 0.1, d.y);
           float lit = fbm(uv + uSunDir.xz * 0.18);
           vec3 cloud = mix(vec3(1.0, 0.97, 0.92) * 1.15, vec3(0.5, 0.56, 0.68), smoothstep(0.35, 0.8, lit));
-          cloud += uSunColor * pow(s, 10.0) * 0.5;
+          cloud *= vec3(0.16, 0.2, 0.34);
+          cloud += uSunColor * pow(s, 10.0) * 0.35;
           col = mix(col, cloud, dens * 0.92);
         } else {
           col = uFogColor;

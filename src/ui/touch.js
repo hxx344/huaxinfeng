@@ -10,14 +10,11 @@ function capture(el, id) {
   }
 }
 
-// 触屏界面：左半屏是随手落点的虚拟摇杆，右下是加速和减速，其余是一次性按钮
+// 触屏界面：左半屏是随手落点的虚拟摇杆，右下是施咒、加速和减速，其余是一次性按钮
 export class TouchUI {
-  constructor(input, { onLand, onCalibrate }) {
+  constructor(input, { onCalibrate }) {
     this.input = input;
-    this.land = $('btn-land');
-    this.flip = $('btn-flip');
     this.calib = $('btn-calib');
-    this.landLabel = null;
 
     const hold = (el, set) => {
       const on = (e) => {
@@ -37,6 +34,7 @@ export class TouchUI {
     };
     hold($('btn-boost'), (v) => (input.touch.boost = v));
     hold($('btn-brake'), (v) => (input.touch.brake = v));
+    hold($('btn-cast'), (v) => (input.touch.cast = v));
 
     const tap = (el, fn) =>
       el.addEventListener('pointerdown', (e) => {
@@ -44,7 +42,6 @@ export class TouchUI {
         fn();
       });
     for (const b of document.querySelectorAll('#touch [data-key]')) tap(b, () => input.press(b.dataset.key));
-    tap(this.land, onLand);
     tap(this.calib, onCalibrate);
     tap($('journal'), () => input.press('KeyJ'));
 
@@ -89,17 +86,6 @@ export class TouchUI {
     });
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
-  }
-
-  setLand(label) {
-    if (label === this.landLabel) return;
-    this.landLabel = label;
-    this.land.style.display = label ? 'block' : 'none';
-    if (label) this.land.textContent = label;
-  }
-
-  setFlip(show) {
-    this.flip.style.display = show ? 'block' : 'none';
   }
 
   setTilt(active) {

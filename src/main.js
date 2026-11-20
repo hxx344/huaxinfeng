@@ -3,20 +3,20 @@ import { U } from './core/shared.js';
 import { mulberry32, clamp } from './core/noise.js';
 import { glowTexture, noiseTexture } from './core/kit.js';
 import { Terrain } from './world/terrain.js';
-import { planSites, buildTown } from './world/town.js';
+import { planSites, buildGrounds } from './world/hogwarts.js';
 import { createSky } from './world/sky.js';
 import { createWater } from './world/water.js';
 import { createMeadow, flowerColor } from './world/meadow.js';
 import { createProps } from './world/props.js';
 import { createSeeds } from './world/seeds.js';
-import { createPlaces } from './world/places.js';
+import { createHorcruxes } from './world/horcruxes.js';
 import { Wake } from './fx/wake.js';
 import { Particles, PETAL, SPRAY, SPARK } from './fx/particles.js';
 import { Input } from './player/input.js';
 import { Flight } from './player/flight.js';
 import { Rider } from './player/rider.js';
 import { ChaseCamera } from './player/camera.js';
-import { Errands } from './game/errands.js';
+import { Combat } from './game/combat.js';
 import { Hud } from './ui/hud.js';
 import { TouchUI } from './ui/touch.js';
 import { GameAudio } from './audio/audio.js';
@@ -31,11 +31,10 @@ const quality = { low: 0.35, medium: 0.65, high: 1 }[params.get('q')] ?? (isTouc
 const basePixelRatio = Math.min(Number(params.get('dpr')) || devicePixelRatio || 1, isTouch ? 1.25 : 1.5);
 const DENSITY_STEPS = [1, 0.7, 0.5, 0.35];
 const SLOW_FRAME = 0.024;
-const FLIP_SEEDS = 10;
-const SAVE_KEY = 'huaxinfeng.save.v1';
+const SAVE_KEY = 'hunqizhiye.save.v1';
 
 function loadSave() {
-  const base = { seeds: 0, deliveries: 0, found: [], invert: false };
+  const base = { runs: 0, wins: 0, best: 0, bestTime: 0, invert: false };
   try {
     return { ...base, ...JSON.parse(localStorage.getItem(SAVE_KEY) || '{}') };
   } catch {
@@ -71,62 +70,89 @@ async function stage(text) {
 }
 
 async function init() {
-  await stage('正在堆出一座岛…');
+  await stage('正在堆出山和黑湖…');
   U.uNoiseMap.value = noiseTexture();
   const terrain = new Terrain();
   const sites = planSites(terrain, mulberry32(77));
   terrain.finalize(sites.clears);
   scene.add(terrain.mesh);
 
-  await stage('正在盖房子、种树…');
+  await stage('正在砌城堡、种禁林…');
   const glowMap = glowTexture();
   const sky = createSky(scene, isTouch ? 1024 : 2048);
   createWater(scene);
-  const town = buildTown(scene, terrain, sites, mulberry32(303));
+  const grounds = buildGrounds(scene, terrain, sites, mulberry32(303));
   const props = createProps(scene, terrain);
 
-  await stage('正在撒花种…');
+  await stage('正在藏魂器…');
   const meadow = createMeadow(scene, quality);
   const seeds = createSeeds(scene, terrain, mulberry32(515));
-  const places = createPlaces(scene, terrain, sites, glowMap, save.found);
+  const horcruxes = createHorcruxes(scene, terrain, sites, glowMap);
   const wake = new Wake();
   const particles = new Particles(scene, terrain, wake);
 
   const input = new Input(canvas);
   input.invert = save.invert;
-  const flight = new Flight(terrain, town.colliders);
+  const flight = new Flight(terrain, grounds.colliders);
   const rider = new Rider(scene);
   const chase = new ChaseCamera(camera, terrain);
   const hud = new Hud();
   const audio = new GameAudio();
 
-  const errands = new Errands({
+  let state = 'title';
+  const combat = new Combat({
     scene,
-    places: town.places,
+    terrain,
     flight,
+    wake,
+    particles,
     glowMap,
-    deliveries: save.deliveries,
-    onDeliver(at, next) {
-      save.deliveries = errands.deliveries;
-      persist();
-      flight.gust = 1;
-      audio.deliver();
-      hud.toast(`已送达：${at.name}`, `下一件包裹送往 ${next.name}`, 4.5);
-      burst(flight.pos, 40, 1.0, 0.75, 0.25);
+    horcruxes,
+    sites,
+    on: {
+      sfx: (name) => audio.sfx(name),
+      toast: (a, b, sec) => hud.toast(a, b, sec),
+      choice(offers) {
+        state = 'choice';
+        input.pointerEnabled = false;
+        document.exitPointerLock?.();
+        hud.showChoice(offers, combat.owned, pick);
+      },
+      over(win) {
+        state = 'over';
+        input.pointerEnabled = false;
+        document.exitPointerLock?.();
+        save.runs++;
+        save.best = Math.max(save.best, combat.destroyed.size);
+        if (win) {
+          save.wins++;
+          if (!save.bestTime || combat.elapsed < save.bestTime) save.bestTime = Math.round(combat.elapsed);
+        }
+        persist();
+        rider.group.visible = win;
+        audio.sfx(win ? 'win' : 'lose');
+        hud.showOver({ win, destroyed: combat.destroyed.size, kills: combat.kills, elapsed: combat.elapsed, owned: combat.owned, save });
+      },
     },
-    onLand(at, delivered) {
-      audio.land();
-      if (!delivered) hud.toast(at.name, isTouch ? '包裹不是送到这里的，点“起飞”离开' : '包裹不是送到这里的，按空格起飞');
-    },
-    onTakeoff() {},
   });
+
+  let offersOpen = [];
+  const showChoice = hud.showChoice.bind(hud);
+  hud.showChoice = (offers, owned, fn) => {
+    offersOpen = offers;
+    showChoice(offers, owned, fn);
+  };
+  function pick(id) {
+    if (state !== 'choice') return;
+    combat.applyUpgrade(id);
+    hud.hideChoice();
+    audio.sfx('pick');
+    state = 'play';
+    input.pointerEnabled = !isTouch;
+  }
 
   const touchUI = isTouch
     ? new TouchUI(input, {
-        onLand() {
-          if (errands.state === 'landed') input.press('Space');
-          else input.doubleSpace = true;
-        },
         onCalibrate() {
           input.calibrate();
           hud.toast('已校准', '现在的拿法就是平飞', 1.6);
@@ -152,16 +178,6 @@ async function init() {
   }
   addEventListener('resize', resize);
   resize();
-
-  function burst(p, n, r, g, b) {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const e = Math.random() * Math.PI - Math.PI / 2;
-      const s = 3 + Math.random() * 7;
-      particles.spawn(SPARK, p.x, p.y, p.z, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 2, Math.sin(a) * Math.cos(e) * s,
-        0.6 + Math.random() * 0.8, 0.25 + Math.random() * 0.3, r, g, b);
-    }
-  }
 
   const fwd = new THREE.Vector3();
   function emitEffects(dt) {
@@ -217,32 +233,45 @@ async function init() {
     }
   }
 
-  let state = 'title';
   let time = 0;
   let last = performance.now();
   let slow = 0;
   let scaleTimer = 0;
   let densityStep = 0;
   let pendingResize = false;
-  const focus = new THREE.Vector3(sites.harbour.x, sites.harbour.y, sites.harbour.z);
-  const total = places.items.length;
-  let foundCount = places.items.filter((it) => it.found).length;
+  const castle = sites.castle;
+  const focus = new THREE.Vector3(castle.x, castle.y, castle.z);
+  const proj = new THREE.Vector3();
   rider.group.visible = false;
+
+  // 每一夜都从城堡北边的草坡上空开始，朝着场地中央
+  function newRun() {
+    combat.reset();
+    hud.hideOver();
+    hud.hideChoice();
+    const x = castle.x;
+    const z = castle.z - 430;
+    flight.pos.set(x, terrain.ground(x, z) + 14, z);
+    flight.yaw = Math.atan2(x + 300, z - 250);
+    flight.pitch = 0;
+    flight.roll = 0;
+    flight.speed = 26;
+    rider.group.visible = true;
+    chase.snap(flight);
+    input.pointerEnabled = !isTouch;
+    state = 'play';
+    hud.toast('毁掉魂器，再去找伏地魔', '金色光柱下是魂器，绿色光柱下是他。魂器剩得越多，他越强', 7);
+  }
 
   function start() {
     if (state !== 'title') return;
-    state = 'play';
     $('title').classList.add('gone');
     $('hud').classList.add('on');
     document.body.classList.add('playing');
     if (isTouch) {
       // 这两步都必须在点击的回调里发起
       input.enableTilt().then((granted) => {
-        setTimeout(() => {
-          const on = granted && input.tilt.active;
-          touchUI.setTilt(on);
-          hud.toast(on ? '倾斜手机来操纵' : '用左下角的摇杆操纵', on ? '左右倾斜转向，前后倾斜俯冲和拉起' : '没有检测到重力感应', 4.5);
-        }, 1200);
+        setTimeout(() => touchUI.setTilt(granted && input.tilt.active), 1200);
       });
       try {
         Promise.resolve(document.documentElement.requestFullscreen?.())
@@ -252,20 +281,60 @@ async function init() {
         // 不支持全屏或锁定横屏的浏览器照常玩
       }
     }
-    const x = sites.harbour.x;
-    const z = sites.harbour.z - 330;
-    flight.pos.set(x, terrain.ground(x, z) + 9, z);
-    // 朝岛中央的草甸飞，而不是一头扎向大山
-    flight.yaw = Math.atan2(x + 300, z - 250);
-    flight.speed = 26;
-    rider.group.visible = true;
-    chase.snap(flight);
-    input.pointerEnabled = !isTouch;
     audio.start();
-    hud.toast(`包裹送往 ${errands.target.name}`, '跟着金色的光柱和罗盘上的金点飞', 5);
+    newRun();
   }
   $('start').addEventListener('click', start);
+  $('again').addEventListener('click', () => {
+    if (state === 'over') newRun();
+  });
   if (params.has('play')) start();
+
+  function hudState() {
+    const p = flight.pos;
+    const s = combat.stats;
+    const near = horcruxes.nearest(p);
+    const boss = combat.boss;
+    const bearing = (t) => Math.atan2(t.x - p.x, -(t.z - p.z));
+    let reticle = null;
+    if (combat.target) {
+      proj.copy(combat.target.pos).project(camera);
+      if (proj.z < 1) reticle = { x: (proj.x * 0.5 + 0.5) * innerWidth, y: (-proj.y * 0.5 + 0.5) * innerHeight, shielded: combat.targetShielded };
+    }
+    const dist = (t) => {
+      const d = Math.hypot(t.x - p.x, t.z - p.z);
+      return d >= 1000 ? `${(d / 1000).toFixed(1)} 公里` : `${Math.round(d)} 米`;
+    };
+    let prompt = combat.warn;
+    if (!prompt && flight.homing) prompt = '风把你吹回场地的方向';
+    return {
+      heading: -flight.yaw,
+      bearings: [near ? bearing(near.pos) : null, boss.state === 'dead' ? null : bearing(boss.pos)],
+      hp: combat.hp,
+      maxHp: s.maxHp,
+      mana: flight.gust,
+      skim: combat.skim,
+      speed: flight.speed,
+      kills: combat.kills,
+      destroyed: combat.destroyed.size,
+      near: near ? ` · 最近：${near.place} ${dist(near.pos)}` : ` · 伏地魔 ${dist(boss.pos)}`,
+      elapsed: combat.elapsed,
+      hurt: clamp(combat.hurtT, 0, 1) * 0.8 + (combat.hp < s.maxHp * 0.3 ? 0.25 + 0.1 * Math.sin(time * 6) : 0),
+      chill: combat.chill * 0.8,
+      reticle,
+      boss: boss.state === 'fight' ? boss.hp / boss.maxHp : null,
+      duel: boss.duel.active ? boss.duel.tug : null,
+      prompt,
+      alert: !!combat.warn,
+      skills: {
+        cast: { off: flight.gust < s.castCost },
+        parry: { cd: combat.parryCd / 0.8 },
+        shield: { cd: combat.shieldCd / s.shieldCd, active: combat.shieldT > 0 },
+        patronus: { off: flight.gust < 0.5 },
+        roll: { cd: combat.rollCd / s.rollCd },
+      },
+    };
+  }
 
   function play(dt) {
     if (input.take('KeyC')) {
@@ -279,71 +348,28 @@ async function init() {
     }
     if (input.take('KeyP')) hud.toggle();
     if (input.take('KeyM')) hud.toast(audio.toggleMute() ? '已静音' : '声音已打开', '', 1.4);
-    if (input.take('KeyJ')) hud.toggleJournal(places.items);
-    if (input.take('KeyQ') && errands.state === 'fly') {
-      if (save.seeds < FLIP_SEEDS) hud.toast('还不会翻转', `再接住 ${FLIP_SEEDS - save.seeds} 颗风种`, 2);
-      else if (flight.flip <= 0) {
-        flight.flip = 1;
-        audio.flip();
-        burst(flight.pos, 24, 1.0, 0.85, 0.4);
-      }
-    }
+    if (input.take('KeyJ')) hud.toggleJournal(horcruxes.items, combat.destroyed.has('scar'), combat.owned);
 
-    errands.update(dt, time, input);
-    const flying = errands.state === 'fly';
-    if (flying) {
-      flight.update(dt, input);
-      if (flight.bounced) audio.bounce();
-    }
-    const landed = errands.state === 'landed';
+    flight.update(dt, input);
+    if (flight.bounced) audio.sfx('swing');
 
     for (const s of seeds.update(dt, flight.pos)) {
-      const was = save.seeds;
-      save.seeds++;
-      flight.gust = Math.min(1, flight.gust + 0.34);
-      audio.seed();
-      burst(s, 14, 1.0, 0.8, 0.3);
-      if (was < FLIP_SEEDS && save.seeds >= FLIP_SEEDS) hud.toast('接住了十颗风种', '按 Q 试试翻转', 4);
-      persist();
+      flight.gust = Math.min(1, flight.gust + 0.3);
+      if (combat.stats.orbHeal) combat.heal(combat.stats.orbHeal);
+      audio.orb();
+      combat.burst(s, 14, [1.0, 0.8, 0.3]);
     }
-    const hit = places.update(dt, time, flight.pos);
-    if (hit) {
-      save.found.push(hit.id);
-      foundCount++;
-      persist();
-      audio.treasure();
-      burst(hit.pos, 60, 1.0, 0.8, 0.3);
-      hud.toast(`找到了：${hit.treasure}`, `${hit.name} · ${hit.note}`, 6);
-    }
+    combat.update(dt, time, input);
+    horcruxes.update(dt, time);
 
-    wake.update(dt, flight, errands.state !== 'landed');
-    if (flying) emitEffects(dt);
-    rider.update(dt, time, flight, landed);
-    chase.update(dt, flight, landed);
+    wake.update(dt, flight, true);
+    emitEffects(dt);
+    rider.update(dt, time, flight);
+    chase.update(dt, flight, false);
     focus.copy(flight.pos);
-
-    const t = errands.target.spot;
-    let prompt = '';
-    if (touchUI) {
-      touchUI.setLand(landed ? '起飞' : flying && errands.near ? `降落 · ${errands.near.name}` : null);
-      touchUI.setFlip(flying && save.seeds >= FLIP_SEEDS);
-      if (flying && flight.homing) prompt = '风把你吹回岛的方向';
-    } else if (landed) prompt = '按 空格 起飞';
-    else if (flying && errands.near) prompt = `连按两次 空格 降落到 ${errands.near.name}`;
-    else if (flying && flight.homing) prompt = '风把你吹回岛的方向';
-    hud.update(dt, {
-      heading: -flight.yaw,
-      bearing: Math.atan2(t.x - flight.pos.x, -(t.z - flight.pos.z)),
-      targetName: errands.target.name,
-      dist: Math.hypot(t.x - flight.pos.x, t.z - flight.pos.z),
-      deliveries: errands.deliveries,
-      speed: flight.speed,
-      gust: flight.gust,
-      seeds: save.seeds,
-      found: foundCount,
-      total,
-      prompt,
-    });
+    // 这一帧里刚结束的话，数字不等节流，立刻刷成最后的样子
+    if (state !== 'play') hud.textTimer = 0;
+    hud.update(dt, hudState());
 
     const h = terrain.height(flight.pos.x, flight.pos.z);
     audio.update(dt, {
@@ -352,16 +378,16 @@ async function init() {
       alt: flight.alt,
       overSea: h <= 0,
       shore: clamp(1 - Math.abs(h) / 14, 0, 1) * clamp(1 - flight.alt / 80, 0.15, 1),
+      tension: combat.boss.state === 'fight',
     });
   }
 
-  function title(dt) {
+  function title() {
     if (input.take('Enter') || input.take('Space')) start();
     const a = time * 0.07 + 0.6;
-    const c = sites.harbour;
-    camera.position.set(c.x + Math.sin(a) * 250, 62 + Math.sin(time * 0.1) * 10, c.z + 40 + Math.cos(a) * 250);
-    camera.lookAt(c.x, 12, c.z);
-    focus.set(c.x, c.y, c.z);
+    camera.position.set(castle.x + Math.sin(a) * 270, castle.y + 70 + Math.sin(time * 0.1) * 12, castle.z + Math.cos(a) * 270);
+    camera.lookAt(castle.x, castle.y + 30, castle.z);
+    focus.set(castle.x, castle.y, castle.z);
   }
 
   function frame(now) {
@@ -377,9 +403,12 @@ async function init() {
     time += dt;
     U.uTime.value = time;
     input.update(dt);
-    if (state === 'title') title(dt);
-    else play(dt);
-    town.update(dt);
+    if (state === 'title') title();
+    else if (state === 'play') play(dt);
+    else if (state === 'choice') {
+      // 挑强化时世界停住
+      for (let i = 0; i < offersOpen.length; i++) if (input.take(`Digit${i + 1}`) || input.take(`Numpad${i + 1}`)) pick(offersOpen[i].id);
+    } else if (state === 'over' && input.take('Enter')) newRun();
     particles.update(dt, time);
     meadow.update(camera);
     sky.update(camera, focus);
@@ -406,7 +435,10 @@ async function init() {
     }
   }
 
-  window.__game = { renderer, meadow, perf: () => ({ densityStep, renderScale }), flight, terrain, sites, errands, town, places, seeds, particles, wake, save, props, input, hud, audio };
+  window.__game = {
+    renderer, camera, meadow, perf: () => ({ densityStep, renderScale }), flight, terrain, sites, grounds, horcruxes, seeds, particles, wake, save, props,
+    input, hud, audio, combat, state: () => state, newRun, pick,
+  };
   $('loading').textContent = '';
   $('start').disabled = false;
   $('start').textContent = '起飞';

@@ -8,7 +8,7 @@ const CLEARANCE = 1.1;
 const CEILING = 460;
 const HOME_RADIUS = 2300;
 
-// 街机式飞行：为贴地飞调的，不会失败。俯冲会自己拉平并弹一下，墙会把人推开
+// 街机式飞行：为贴地飞调的，撞不坏。俯冲会自己拉平并弹一下，墙会把人推开
 export class Flight {
   constructor(T, colliders) {
     this.T = T;
@@ -26,6 +26,9 @@ export class Flight {
     this.bounced = false;
     this.homing = false;
     this.flip = 0;
+    this.rollDir = 0;
+    this.speedMul = 1;
+    this.webbed = 0;
   }
 
   forward(out) {
@@ -59,7 +62,8 @@ export class Flight {
 
     this.boosting = input.boost && this.gust > 0.02;
     const braking = input.brake;
-    let target = braking ? SLOW : this.boosting ? SPRINT : CRUISE;
+    let target = braking ? SLOW : (this.boosting ? SPRINT : CRUISE) * this.speedMul;
+    if (this.webbed > 0) target = Math.min(target, 16);
     target -= Math.sin(this.pitch) * 18;
     const rate = this.boosting ? 1.7 : braking ? 2.2 : 0.8;
     this.speed += (target - this.speed) * Math.min(1, dt * rate);
@@ -70,6 +74,12 @@ export class Flight {
     pos.z += fz * cp * this.speed * dt;
     pos.y += (Math.sin(this.pitch) * this.speed + this.vy) * dt;
     this.vy *= Math.exp(-3 * dt);
+    // 翻滚时往按住的那一侧横移一段，用来闪开咒语
+    if (this.flip > 0 && this.rollDir) {
+      const k = this.rollDir * 16 * dt;
+      pos.x += Math.cos(this.yaw) * k;
+      pos.z -= Math.sin(this.yaw) * k;
+    }
 
     for (const c of this.colliders) {
       const dx = pos.x - c.x;

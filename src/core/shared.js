@@ -6,17 +6,18 @@ export const GRID = 512;
 export const TRAIL_N = 24;
 
 const SUN_DIR = new THREE.Vector3(-0.55, 0.42, 0.62).normalize();
-const SUN_COLOR = new THREE.Color(1.0, 0.87, 0.68);
-const SKY_COLOR = new THREE.Color(0.55, 0.72, 1.0);
-const GROUND_COLOR = new THREE.Color(0.42, 0.38, 0.28);
+// 月夜：主光是偏蓝的月光，天光压暗
+const SUN_COLOR = new THREE.Color(0.62, 0.74, 1.0);
+const SKY_COLOR = new THREE.Color(0.3, 0.42, 0.8);
+const GROUND_COLOR = new THREE.Color(0.12, 0.14, 0.2);
 
 export const LIGHT = {
   sunDir: SUN_DIR,
   sunColor: SUN_COLOR,
-  sunIntensity: 3.1,
+  sunIntensity: 1.9,
   skyColor: SKY_COLOR,
   groundColor: GROUND_COLOR,
-  hemiIntensity: 1.35,
+  hemiIntensity: 1.0,
 };
 
 // 所有自写着色器共用的 uniform；内置材质的灯光用同一组数值，保证两者亮度一致
@@ -30,9 +31,9 @@ export const U = {
   uSunColor: { value: SUN_COLOR },
   uSunLight: { value: SUN_COLOR.clone().multiplyScalar(LIGHT.sunIntensity / Math.PI) },
   uSkyLight: { value: SKY_COLOR.clone().multiplyScalar(LIGHT.hemiIntensity / Math.PI) },
-  uFogColor: { value: new THREE.Color(0.66, 0.75, 0.84) },
+  uFogColor: { value: new THREE.Color(0.09, 0.13, 0.24) },
   uFogDensity: { value: 0.00026 },
-  uZenith: { value: new THREE.Color(0.1, 0.27, 0.62) },
+  uZenith: { value: new THREE.Color(0.012, 0.03, 0.1) },
 };
 
 export function commonUniforms(extra = {}) {

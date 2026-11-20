@@ -1,21 +1,22 @@
 import { clamp } from '../core/noise.js';
 import { tiltAngles, tiltSteer, screenAngle } from './tilt.js';
 
+// 手柄：Y 守护神，LB 缴械，RB 翻滚，按下右摇杆护盾
+const PAD_KEYS = [[3, 'KeyG'], [4, 'KeyE'], [5, 'KeyQ'], [11, 'KeyR']];
+
 export class Input {
   constructor(dom) {
     this.keys = new Set();
     this.hit = new Set();
     this.mx = 0;
     this.my = 0;
-    this.mouseBoost = false;
+    this.mouseCast = false;
     this.mouseBrake = false;
     this.locked = false;
     this.pointerEnabled = false;
     this.invert = false;
-    this.lastSpace = -1e9;
-    this.doubleSpace = false;
-    this.gp = { x: 0, y: 0, boost: false, brake: false };
-    this.touch = { x: 0, y: 0, boost: false, brake: false };
+    this.gp = { x: 0, y: 0, boost: false, brake: false, cast: false, held: [] };
+    this.touch = { x: 0, y: 0, boost: false, brake: false, cast: false };
     this.tilt = { x: 0, y: 0, active: false, neutral: null, listening: false };
 
     addEventListener('keydown', (e) => {
@@ -23,23 +24,18 @@ export class Input {
       if (e.repeat) return;
       this.keys.add(e.code);
       this.hit.add(e.code);
-      if (e.code === 'Space') {
-        const now = performance.now();
-        if (now - this.lastSpace < 380) this.doubleSpace = true;
-        this.lastSpace = now;
-      }
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
     addEventListener('blur', () => {
       this.keys.clear();
-      this.mouseBoost = this.mouseBrake = false;
+      this.mouseCast = this.mouseBrake = false;
     });
     dom.addEventListener('click', () => {
       if (this.pointerEnabled && !this.locked) dom.requestPointerLock?.();
     });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === dom;
-      if (!this.locked) this.mouseBoost = this.mouseBrake = false;
+      if (!this.locked) this.mouseCast = this.mouseBrake = false;
     });
     addEventListener('mousemove', (e) => {
       if (!this.locked) return;
@@ -48,11 +44,11 @@ export class Input {
     });
     addEventListener('mousedown', (e) => {
       if (!this.locked) return;
-      if (e.button === 0) this.mouseBoost = true;
+      if (e.button === 0) this.mouseCast = true;
       if (e.button === 2) this.mouseBrake = true;
     });
     addEventListener('mouseup', (e) => {
-      if (e.button === 0) this.mouseBoost = false;
+      if (e.button === 0) this.mouseCast = false;
       if (e.button === 2) this.mouseBrake = false;
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
@@ -119,9 +115,16 @@ export class Input {
       this.gp.y = dead(pad.axes[1] || 0);
       this.gp.boost = !!(pad.buttons[7]?.pressed || pad.buttons[0]?.pressed);
       this.gp.brake = !!(pad.buttons[6]?.pressed || pad.buttons[1]?.pressed);
+      this.gp.cast = !!pad.buttons[2]?.pressed;
+      // 一次性的咒语按钮：按下的那一帧当作一次按键
+      for (const [index, code] of PAD_KEYS) {
+        const now = !!pad.buttons[index]?.pressed;
+        if (now && !this.gp.held[index]) this.hit.add(code);
+        this.gp.held[index] = now;
+      }
     } else {
       this.gp.x = this.gp.y = 0;
-      this.gp.boost = this.gp.brake = false;
+      this.gp.boost = this.gp.brake = this.gp.cast = false;
     }
   }
 
@@ -139,7 +142,11 @@ export class Input {
   }
 
   get boost() {
-    return this.down('ShiftLeft', 'ShiftRight') || this.mouseBoost || this.gp.boost || this.touch.boost;
+    return this.down('ShiftLeft', 'ShiftRight') || this.gp.boost || this.touch.boost;
+  }
+
+  get cast() {
+    return this.down('KeyF') || this.mouseCast || this.gp.cast || this.touch.cast;
   }
 
   get brake() {
@@ -148,6 +155,5 @@ export class Input {
 
   endFrame() {
     this.hit.clear();
-    this.doubleSpace = false;
   }
 }

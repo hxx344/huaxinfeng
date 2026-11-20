@@ -38,5 +38,5 @@ http.createServer(async (req, res) => {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('not found');
   }
 }).listen(port, '127.0.0.1', () => {
-  console.log(`花信风 http://localhost:${port}`);
+  console.log(`魂器之夜 http://localhost:${port}`);
 });

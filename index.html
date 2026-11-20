@@ -3,112 +3,168 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>花信风</title>
+<title>魂器之夜</title>
 <style>
-  :root { --gold: #f3c35a; --ink: rgba(18, 22, 34, 0.55); }
+  :root { --gold: #f3c35a; --ink: rgba(10, 13, 24, 0.62); --red: #e2493c; --blue: #6fb8ff; --green: #49e07a; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1420; color: #fff; touch-action: none;
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #070a14; color: #fff; touch-action: none;
     overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
     font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif; }
   #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .serif { font-family: "Songti SC", "STSong", "SimSun", "Noto Serif SC", serif; }
 
   #title { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: radial-gradient(ellipse at center, rgba(10, 16, 30, 0.15), rgba(10, 16, 30, 0.6));
-    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6); transition: opacity 0.9s; z-index: 5; }
+    background: radial-gradient(ellipse at center, rgba(6, 9, 20, 0.2), rgba(6, 9, 20, 0.7));
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7); transition: opacity 0.9s; z-index: 7; }
   #title.gone { opacity: 0; pointer-events: none; }
-  #title h1 { font-size: clamp(56px, 11vw, 132px); margin: 0; letter-spacing: 0.18em; font-weight: 600; }
-  #title .tag { font-size: clamp(15px, 1.7vw, 22px); letter-spacing: 0.35em; margin: 6px 0 34px; opacity: 0.92; }
-  #start { font: inherit; font-size: 20px; letter-spacing: 0.5em; padding: 12px 30px 12px 40px; color: #1c1404;
+  #title h1 { font-size: clamp(52px, 10vw, 120px); margin: 0; letter-spacing: 0.18em; font-weight: 600; }
+  #title .tag { font-size: clamp(14px, 1.6vw, 20px); letter-spacing: 0.3em; margin: 6px 0 28px; opacity: 0.92; }
+  .cta { font: inherit; font-size: 20px; letter-spacing: 0.5em; padding: 12px 30px 12px 40px; color: #1c1404;
     background: var(--gold); border: 0; border-radius: 999px; cursor: pointer; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); }
-  #start:disabled { background: rgba(255, 255, 255, 0.25); color: #fff; cursor: default; }
-  #start:not(:disabled):hover { filter: brightness(1.08); }
+  .cta:disabled { background: rgba(255, 255, 255, 0.25); color: #fff; cursor: default; }
+  .cta:not(:disabled):hover { filter: brightness(1.08); }
   #loading { height: 22px; margin-top: 14px; font-size: 14px; opacity: 0.85; }
-  .keys { margin-top: 26px; display: grid; grid-template-columns: auto auto; gap: 5px 18px; font-size: 13.5px;
-    background: var(--ink); padding: 14px 20px; border-radius: 12px; text-shadow: none; }
-  .keys kbd { font: inherit; color: var(--gold); text-align: right; }
+  .keys { margin-top: 20px; display: grid; grid-template-columns: auto auto; gap: 4px 18px; font-size: 13px;
+    background: var(--ink); padding: 12px 20px; border-radius: 12px; text-shadow: none; max-width: 92vw; }
+  .keys kbd { font: inherit; color: var(--gold); text-align: right; white-space: nowrap; }
 
   #hud { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.6s; z-index: 3;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8); }
   #hud.on { opacity: 1; }
   #hud.hidden { opacity: 0; }
   .panel { position: absolute; background: var(--ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
-  #errand { top: 16px; left: 16px; line-height: 1.6; }
-  #errand b { color: var(--gold); font-size: 17px; }
-  #stats { bottom: 16px; left: 16px; min-width: 190px; line-height: 1.7; }
-  #stats .big { font-size: 30px; font-weight: 600; }
-  #gust { height: 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.2); overflow: hidden; margin: 2px 0 6px; }
-  #gust-fill { height: 100%; background: linear-gradient(90deg, #8fd4ff, #fff); transform-origin: left; }
-  #flip-hint { color: var(--gold); }
+  #quest { top: 16px; left: 16px; line-height: 1.6; }
+  #quest b { color: var(--gold); font-size: 17px; }
+  #stats { bottom: 16px; left: 16px; min-width: 250px; line-height: 1.5; }
+  #stats .row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; white-space: nowrap; }
+  #stats .small { font-size: 12.5px; opacity: 0.85; }
+  .bar { flex: 1; height: 9px; border-radius: 5px; background: rgba(255, 255, 255, 0.18); overflow: hidden; min-width: 90px; }
+  .bar > div { height: 100%; transform-origin: left; }
+  #hp-fill { background: linear-gradient(90deg, #b3261c, var(--red)); }
+  #mana-fill { background: linear-gradient(90deg, #3d7fd6, #bfe3ff); }
+  #mana.skim { box-shadow: 0 0 10px var(--blue); }
+  #skim { color: var(--blue); font-size: 12px; opacity: 0; transition: opacity 0.2s; }
+  #skim.on { opacity: 1; }
+  #hp-text { font-size: 12.5px; min-width: 52px; }
   #compass { position: absolute; top: 16px; left: 50%; width: min(360px, 44vw); height: 34px; margin-left: calc(min(360px, 44vw) / -2);
     background: var(--ink); border-radius: 999px; overflow: hidden; }
   #compass .mark, #compass .pin { position: absolute; left: 50%; top: 0; line-height: 34px; margin-left: -8px; width: 16px;
     text-align: center; font-size: 14px; }
   #compass .pin { top: 11px; height: 12px; width: 12px; margin-left: -6px; border-radius: 50%; background: var(--gold);
     box-shadow: 0 0 10px var(--gold); }
+  #compass .pin.dark { background: var(--green); box-shadow: 0 0 10px var(--green); }
   #compass .pin.edge { opacity: 0.6; }
   #compass::after { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 6px; background: #fff; opacity: 0.7; }
-  #prompt { position: absolute; bottom: 86px; left: 50%; transform: translateX(-50%); background: var(--ink); padding: 9px 18px;
-    border-radius: 999px; font-size: 15px; opacity: 0; transition: opacity 0.25s; white-space: nowrap; }
+  #boss { position: absolute; top: 58px; left: 50%; width: min(460px, 56vw); transform: translateX(-50%); text-align: center;
+    display: none; }
+  #boss.show { display: block; }
+  #boss-name { font-size: 20px; letter-spacing: 0.3em; color: var(--green); margin-bottom: 4px; }
+  #boss-fill { background: linear-gradient(90deg, #1b8a43, var(--green)); }
+  #duel { position: absolute; top: 42%; left: 50%; width: min(420px, 60vw); height: 14px; transform: translateX(-50%);
+    border-radius: 7px; background: var(--green); overflow: hidden; display: none; box-shadow: 0 0 18px rgba(255, 220, 120, 0.6); }
+  #duel.show { display: block; }
+  #duel-fill { height: 100%; background: var(--red); transform-origin: left; }
+  #prompt { position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%); background: var(--ink); padding: 9px 18px;
+    border-radius: 999px; font-size: 15px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
   #prompt.show { opacity: 1; }
-  #toast-box { position: absolute; top: 76px; left: 50%; transform: translateX(-50%); text-align: center; opacity: 0;
+  #prompt.alert { background: rgba(20, 120, 50, 0.8); font-size: 18px; }
+  #toast-box { position: absolute; top: 104px; left: 50%; transform: translateX(-50%); text-align: center; opacity: 0;
     transition: opacity 0.4s; max-width: 80vw; }
   #toast-box.show { opacity: 1; }
   #toast { font-size: 26px; letter-spacing: 0.08em; }
   #toast-sub { font-size: 14.5px; opacity: 0.92; margin-top: 4px; }
-  #journal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(520px, 90vw); max-height: 80vh;
-    overflow: auto; background: rgba(24, 20, 14, 0.88); border: 1px solid rgba(243, 195, 90, 0.5); border-radius: 14px;
-    padding: 18px 24px; display: none; z-index: 4; }
+  #reticle { position: absolute; left: 0; top: 0; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+    border: 2px solid var(--red); box-shadow: 0 0 10px var(--red); display: none; }
+  #reticle.show { display: block; }
+  #reticle.shield { border-color: #9aa; box-shadow: none; border-style: dashed; }
+  #skills { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 8px; }
+  .skill { position: relative; overflow: hidden; }
+  #skills .skill { background: var(--ink); border-radius: 10px; padding: 7px 11px; font-size: 13px; text-align: center; line-height: 1.35; }
+  #skills .skill kbd { display: block; font: inherit; color: var(--gold); font-size: 15px; }
+  .skill::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); transform-origin: bottom;
+    transform: scaleY(var(--cd, 0)); pointer-events: none; }
+  .skill.off { opacity: 0.45; }
+  .skill.active { box-shadow: 0 0 12px var(--blue); }
+  .fx { position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: 0; }
+  #hurt { background: radial-gradient(ellipse at center, transparent 40%, rgba(200, 20, 10, 0.75) 100%); }
+  #chill { background: radial-gradient(ellipse at center, transparent 30%, rgba(150, 190, 255, 0.6) 100%); }
+
+  .sheet { position: fixed; inset: 0; z-index: 6; display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(6, 9, 20, 0.72); text-align: center; padding: 16px; }
+  .sheet.show { display: flex; }
+  .sheet h2 { margin: 0 0 6px; font-size: clamp(26px, 4.5vw, 44px); letter-spacing: 0.2em; font-weight: 600; color: var(--gold); }
+  .sheet p { margin: 0 0 18px; font-size: 14.5px; opacity: 0.9; }
+  #cards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .card { font: inherit; color: #fff; width: min(230px, 28vw); min-height: 150px; padding: 16px 14px; border-radius: 14px; cursor: pointer;
+    background: rgba(24, 20, 14, 0.9); border: 1px solid rgba(243, 195, 90, 0.5); text-align: left; }
+  .card:hover { border-color: var(--gold); background: rgba(46, 36, 18, 0.95); }
+  .card kbd { font: inherit; color: var(--gold); font-size: 13px; }
+  .card b { display: block; font-size: 19px; margin: 6px 0 8px; color: var(--gold); }
+  .card span { font-size: 13.5px; line-height: 1.5; opacity: 0.92; }
+  .card i { display: block; font-style: normal; font-size: 12px; opacity: 0.6; margin-top: 8px; }
+  #over-stats { display: grid; grid-template-columns: auto auto; gap: 5px 18px; font-size: 15px; margin-bottom: 22px; text-align: left;
+    background: var(--ink); padding: 14px 22px; border-radius: 12px; }
+  #over-stats span:nth-child(odd) { opacity: 0.75; }
+
+  #journal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(540px, 90vw); max-height: 84vh;
+    overflow: auto; background: rgba(24, 20, 14, 0.9); border: 1px solid rgba(243, 195, 90, 0.5); border-radius: 14px;
+    padding: 18px 24px; display: none; z-index: 5; }
   #journal.show { display: block; }
   #journal h2 { margin: 0 0 10px; letter-spacing: 0.3em; font-weight: 600; color: var(--gold); }
   #journal ul { list-style: none; margin: 0; padding: 0; }
-  #journal li { padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.12); font-size: 14px; opacity: 0.75; }
-  #journal li.found { opacity: 1; }
-  #journal li b { display: block; font-size: 15.5px; margin-bottom: 2px; }
-  #journal li.found b { color: var(--gold); }
-  #journal p { font-size: 12.5px; opacity: 0.6; margin: 10px 0 0; }
+  #journal li { padding: 7px 0; border-top: 1px solid rgba(255, 255, 255, 0.12); font-size: 14px; }
+  #journal li.done { opacity: 0.5; text-decoration: line-through; }
+  #journal li b { display: block; font-size: 15.5px; margin-bottom: 2px; color: var(--gold); }
+  #journal p { font-size: 12.5px; opacity: 0.7; margin: 10px 0 0; }
   .touch-only { display: none; }
   body.touch .touch-only { display: revert; }
   body.touch .keys.touch-only { display: grid; }
-  body.touch .key-only, body.touch #flip-hint { display: none !important; }
+  body.touch .key-only { display: none !important; }
 
-  /* 触屏：摇杆、按钮和更紧凑的界面 */
+  /* 触屏：左半屏摇杆，右下是咒语和飞行按钮 */
   #touch { position: fixed; inset: 0; z-index: 4; display: none; pointer-events: none; }
   body.touch.playing #touch { display: block; }
   #touch button { pointer-events: auto; font: inherit; color: #fff; background: var(--ink); touch-action: none;
-    border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 999px; padding: 0; }
+    border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 999px; padding: 0; font-size: 13px; }
   #touch button.down { background: rgba(255, 255, 255, 0.35); }
-  #stick-zone { position: absolute; left: 0; top: 96px; bottom: 0; width: 45%; pointer-events: auto; touch-action: none; }
+  #stick-zone { position: absolute; left: 0; top: 96px; bottom: 0; width: 42%; pointer-events: auto; touch-action: none; }
   #stick { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.45); display: none; }
   #stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px; border-radius: 50%;
     background: rgba(255, 255, 255, 0.6); }
-  #btn-boost, #btn-brake, #btn-flip { position: absolute; right: max(18px, env(safe-area-inset-right)); }
-  #btn-boost { bottom: 20px; width: 88px; height: 88px; font-size: 17px; }
-  #btn-brake { bottom: 20px; right: calc(max(18px, env(safe-area-inset-right)) + 100px); width: 68px; height: 68px; }
-  #btn-flip { bottom: 120px; width: 68px; height: 68px; display: none; border-color: var(--gold); color: var(--gold); }
-  #touch #btn-land { position: absolute; left: 50%; transform: translateX(-50%); bottom: 52px; padding: 10px 22px;
-    font-size: 16px; display: none; background: var(--gold); color: #1c1404; border: 0; white-space: nowrap; }
+  #pad { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: 14px; width: 250px; height: 210px; }
+  #pad button { position: absolute; }
+  #touch #btn-cast { right: 0; bottom: 0; width: 86px; height: 86px; font-size: 17px; border-color: var(--red); }
+  #btn-boost { right: 96px; bottom: 0; width: 62px; height: 62px; }
+  #btn-brake { right: 166px; bottom: 0; width: 52px; height: 52px; }
+  #btn-roll { right: 0; bottom: 96px; width: 58px; height: 58px; border-color: var(--gold) !important; }
+  #btn-parry { right: 66px; bottom: 72px; width: 58px; height: 58px; }
+  #btn-shield { right: 132px; bottom: 62px; width: 58px; height: 58px; }
+  #btn-patronus { right: 30px; bottom: 150px; width: 64px; height: 58px; border-color: var(--blue) !important; }
   #menu { position: absolute; top: 46px; right: max(10px, env(safe-area-inset-right)); display: flex; gap: 6px; }
   #touch #menu button { padding: 6px 11px; font-size: 13px; }
-  body.touch #errand { top: 8px; left: max(8px, env(safe-area-inset-left)); font-size: 12px; padding: 6px 10px; line-height: 1.45; }
-  body.touch #errand b { font-size: 14px; }
+  body.touch #quest { top: 8px; left: max(8px, env(safe-area-inset-left)); font-size: 12px; padding: 6px 10px; line-height: 1.45; }
+  body.touch #quest b { font-size: 14px; }
   body.touch #compass { top: 8px; height: 28px; width: min(240px, 34vw); margin-left: calc(min(240px, 34vw) / -2); }
   body.touch #compass .mark { line-height: 28px; }
   body.touch #compass .pin { top: 8px; }
-  body.touch #stats { left: 50%; bottom: 8px; transform: translateX(-50%); min-width: 0; display: flex; align-items: center;
-    gap: 9px; padding: 5px 12px; font-size: 12px; white-space: nowrap; line-height: 1.3; }
-  body.touch #stats .big { font-size: 17px; }
-  body.touch #stats br { display: none; }
-  body.touch #gust { width: 64px; margin: 0; }
-  body.touch #toast-box { top: 44px; }
+  body.touch #boss { top: 40px; width: min(300px, 40vw); }
+  body.touch #boss-name { font-size: 14px; margin-bottom: 2px; }
+  body.touch #stats { left: 43%; bottom: 8px; min-width: 0; width: 190px; padding: 6px 10px; font-size: 11.5px; }
+  body.touch #stats .small { display: none; }
+  body.touch #stats .row { margin-bottom: 3px; }
+  body.touch #stats .row:last-of-type { margin-bottom: 0; }
+  body.touch #hp-text, body.touch #skim { display: none; }
+  body.touch .bar { min-width: 60px; }
+  body.touch #toast-box { top: 66px; }
   body.touch #toast { font-size: 19px; }
   body.touch #toast-sub { font-size: 12.5px; }
-  body.touch #prompt { bottom: 52px; font-size: 13px; }
-  body.touch #title h1 { font-size: clamp(40px, 16vh, 96px); }
-  body.touch #title .tag { margin: 2px 0 14px; font-size: 14px; }
-  body.touch .keys { margin-top: 12px; padding: 9px 14px; font-size: 12px; gap: 3px 12px; }
-  #rotate { display: none; position: fixed; inset: 0; z-index: 9; background: #0d1420; align-items: center;
+  body.touch #prompt { bottom: 62px; font-size: 13px; }
+  body.touch #title h1 { font-size: clamp(38px, 15vh, 90px); }
+  body.touch #title .tag { margin: 2px 0 12px; font-size: 13px; }
+  body.touch .keys { margin-top: 10px; padding: 8px 14px; font-size: 11.5px; gap: 2px 12px; }
+  body.touch .card { min-height: 110px; padding: 10px; }
+  #rotate { display: none; position: fixed; inset: 0; z-index: 9; background: #070a14; align-items: center;
     justify-content: center; font-size: 22px; letter-spacing: 0.2em; }
   @media (orientation: portrait) { body.touch #rotate { display: flex; } }
 </style>
@@ -118,17 +174,28 @@
 </head>
 <body>
 <canvas id="view"></canvas>
+<div id="hurt" class="fx"></div>
+<div id="chill" class="fx"></div>
 
 <div id="hud">
-  <div id="errand" class="panel">包裹送往 <b id="target-name">…</b> · <span id="target-dist"></span><br>已送达 <span id="delivered">0</span> 件</div>
+  <div id="quest" class="panel">魂器 <b id="hx-count">0/7</b><span id="hx-near"></span><br><span id="night"></span></div>
   <div id="compass"></div>
+  <div id="boss"><div id="boss-name" class="serif">伏地魔</div><div class="bar"><div id="boss-fill"></div></div></div>
   <div id="toast-box"><div id="toast" class="serif"></div><div id="toast-sub"></div></div>
+  <div id="duel"><div id="duel-fill"></div></div>
   <div id="prompt"></div>
+  <div id="reticle"></div>
   <div id="stats" class="panel">
-    <span class="big" id="speed">0</span> 公里/时
-    <div id="gust"><div id="gust-fill"></div></div>
-    <span>风种 <span id="seeds">0</span> <span id="flip-hint">· Q 翻转</span></span><br>
-    <span>宝物 <span id="found">0/8</span><span class="key-only"> · J 手记</span></span>
+    <div class="row"><span>生命</span><div class="bar"><div id="hp-fill"></div></div><span id="hp-text"></span></div>
+    <div class="row"><span>魔力</span><div class="bar" id="mana"><div id="mana-fill"></div></div><span id="skim">贴地汲魔</span></div>
+    <span class="small"><span id="speed">0</span> 公里/时 · 击败 <span id="kills">0</span><span class="key-only"> · J 手记</span></span>
+  </div>
+  <div id="skills" class="key-only">
+    <div class="skill" data-skill="cast"><kbd>F</kbd>昏昏倒地</div>
+    <div class="skill" data-skill="parry"><kbd>E</kbd>除你武器</div>
+    <div class="skill" data-skill="shield"><kbd>R</kbd>盔甲护身</div>
+    <div class="skill" data-skill="patronus"><kbd>G</kbd>呼神护卫</div>
+    <div class="skill" data-skill="roll"><kbd>Q</kbd>翻滚</div>
   </div>
 </div>
 
@@ -141,39 +208,61 @@
     <button data-key="KeyM">静音</button>
     <button id="btn-calib" style="display:none">校准</button>
   </div>
-  <button id="btn-land"></button>
-  <button id="btn-flip" data-key="KeyQ">翻转</button>
-  <button id="btn-brake">减速</button>
-  <button id="btn-boost">加速</button>
+  <div id="pad">
+    <button id="btn-patronus" class="skill" data-skill="patronus" data-key="KeyG">守护神</button>
+    <button id="btn-roll" class="skill" data-skill="roll" data-key="KeyQ">翻滚</button>
+    <button id="btn-parry" class="skill" data-skill="parry" data-key="KeyE">缴械</button>
+    <button id="btn-shield" class="skill" data-skill="shield" data-key="KeyR">护盾</button>
+    <button id="btn-brake">减速</button>
+    <button id="btn-boost">加速</button>
+    <button id="btn-cast" class="skill" data-skill="cast">施咒</button>
+  </div>
 </div>
 <div id="rotate">请把手机横过来</div>
 
 <div id="journal">
   <h2 class="serif">手记</h2>
   <ul id="journal-list"></ul>
+  <p id="journal-ups"></p>
   <p><span class="key-only">按 J 合上</span><span class="touch-only">点一下合上</span></p>
 </div>
 
+<div id="choice" class="sheet">
+  <h2 class="serif">魂器已毁</h2>
+  <p>挑一样带走<span class="key-only">（按 1、2、3 或点击）</span></p>
+  <div id="cards"></div>
+</div>
+
+<div id="over" class="sheet">
+  <h2 class="serif" id="over-title"></h2>
+  <p id="over-sub"></p>
+  <div id="over-stats"></div>
+  <button id="again" class="cta">再来一夜</button>
+</div>
+
 <div id="title">
-  <h1 class="serif">花信风</h1>
-  <div class="tag serif">一把扫帚 · 一座岛 · 一阵好风</div>
-  <button id="start" disabled>稍候</button>
+  <h1 class="serif">魂器之夜</h1>
+  <div class="tag serif">霍格沃茨 · 一把火弩箭 · 七件魂器</div>
+  <button id="start" class="cta" disabled>稍候</button>
   <div id="loading">正在准备…</div>
   <div class="keys touch-only">
-    <kbd>倾斜手机</kbd><span>左右转向，前后俯冲和拉起；点“校准”把现在的拿法设为平飞</span>
-    <kbd>左半屏</kbd><span>按住拖动是摇杆，没有重力感应时用它操纵</span>
-    <kbd>加速 · 减速</kbd><span>按住右下角的按钮</span>
-    <kbd>降落 · 起飞</kbd><span>靠近亮起的平台时会出现按钮</span>
+    <kbd>倾斜手机</kbd><span>左右转向，前后俯冲和拉起；没有重力感应时按住左半屏拖动</span>
+    <kbd>施咒</kbd><span>按住连发昏昏倒地，自动锁定前方的敌人</span>
+    <kbd>翻滚</kbd><span>短暂无敌，索命咒只能靠它躲</span>
+    <kbd>缴械 · 护盾</kbd><span>咒语快打到时点缴械弹回去；护盾挡一阵普通咒语</span>
+    <kbd>守护神</kbd><span>用掉全部魔力驱散摄魂怪，至少要半条</span>
+    <kbd>魔力</kbd><span>贴着地面或湖面飞才回得快</span>
   </div>
   <div class="keys key-only">
-    <kbd>W S / ↑ ↓</kbd><span>俯冲、拉起</span>
-    <kbd>A D / ← →</kbd><span>侧倾转向</span>
-    <kbd>Shift</kbd><span>乘阵风加速</span>
-    <kbd>空格</kbd><span>减速；靠近亮起的平台时连按两次降落，再按起飞</span>
-    <kbd>Q</kbd><span>翻转（接住十颗风种之后）</span>
-    <kbd>J</kbd><span>宝物手记</span>
-    <kbd>鼠标</kbd><span>点击画面后用鼠标操纵，左键加速，右键减速</span>
-    <kbd>C · I · P · M</kbd><span>切换镜头 · 反转俯仰 · 隐藏界面 · 静音</span>
+    <kbd>W S A D / 方向键</kbd><span>俯冲、拉起、转向</span>
+    <kbd>Shift · 空格</kbd><span>加速（消耗魔力）· 减速</span>
+    <kbd>F / 鼠标左键</kbd><span>昏昏倒地：按住连发，自动锁定前方的敌人</span>
+    <kbd>Q</kbd><span>翻滚：短暂无敌，索命咒只能靠它躲</span>
+    <kbd>E</kbd><span>除你武器：咒语快打到时按下，把它弹回去</span>
+    <kbd>R</kbd><span>盔甲护身：挡一阵普通咒语</span>
+    <kbd>G</kbd><span>呼神护卫：用掉全部魔力驱散摄魂怪，至少要半条</span>
+    <kbd>魔力</kbd><span>贴着地面或湖面飞才回得快</span>
+    <kbd>J · C · I · P · M</kbd><span>手记 · 镜头 · 反转俯仰 · 隐藏界面 · 静音</span>
   </div>
 </div>
 
